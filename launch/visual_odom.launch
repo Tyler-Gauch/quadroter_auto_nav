@@ -1,0 +1,52 @@
+<launch>
+
+<!-- 	<node pkg="xv_11_laser_driver" type="neato_laser_publisher" name="xv_11_node">
+    	<param name="port" value="/dev/ttyACM0"/>
+    	<param name="firmware_version" value="2"/>
+    	<param name="frame_id" value="laser"/>
+    </node> -->
+
+
+    <node pkg="tf" type="static_transform_publisher" name="map_2_odom" args="0 0 0 0 0 0 /map /odom 10"/>
+	
+	<node pkg="tf" type="static_transform_publisher" name="base_frame_2_odom" args="0 0 0 0 0 0 /odom /base_link 10"/> 
+    
+    <node pkg="tf" type="static_transform_publisher" name="base_frame_2_laser" args="0 0 0 0 0 0 /base_link /laser 10"/> 
+
+	<!-- <group ns="my_camera">
+		<node name="get_camera_image" pkg="libuvc_camera" type="camera_node">
+			<param name="vendor" value="0x04f2"/>
+			<param name="product" value="0xb39a"/>
+			<param name="serial" value=""/>
+			<param name="index" value="0"/>
+
+			<param name="width" value="640"/>
+			<param name="height" value="480"/>
+			<param name="video_mode" value="uncompressed"/>
+			<param name="frame_rate" value="15"/>
+
+			<param name="timestamp_method" value="start"/> 
+			<param name="camera_info_url" value="file:///home/tyler/catkin_ws/ost.yaml"/>
+
+			<param name="auto_exposure" value="3"/>
+			<param name="auto_white_balance" value="false"/>
+		</node>
+
+		<node name="rectify_image" pkg="image_proc" type="image_proc">
+		</node>
+	</group>
+
+	<node name="viso2" pkg="viso2_ros" type="mono_odometer" output="screen">
+		<remap from="image" to="/my_camera/image_rect"/>
+		<param name="camera_height" value="0.762"/>
+		<param name="camera_pitch" value="0.0"/>
+	</node> -->
+	
+	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find quadroter_auto_nav)/rviz_cfg/visual_odom.rviz"/>
+
+	<include file="$(find hector_mapping)/launch/mapping_default.launch"/> 
+	<include file="$(find hector_geotiff)/launch/geotiff_mapper.launch"/>
+
+	<!-- <node name="tf_view_frames" pkg="tf" type="view_frames"/> -->
+
+</launch>

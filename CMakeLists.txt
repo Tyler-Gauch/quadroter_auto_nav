@@ -127,7 +127,10 @@ include_directories(
 # add_dependencies(quadroter_auto_nav ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
+
  add_executable(main src/main.cpp src/AutoNav.h src/AutoNav.cpp src/Problem.h src/Problem.cpp src/State.h src/State.cpp src/CommonUtils.h src/CommonUtils.cpp src/Debugger.h src/Debugger.cpp)
+
+ add_executable(radio_sim src/RadioSim.cpp src/RadioSim.h)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
@@ -136,6 +139,11 @@ include_directories(
 ## Specify libraries to link a library or executable target against
  target_link_libraries(
  	main
+   ${catkin_LIBRARIES}
+ )
+
+ target_link_libraries(
+ 	radio_sim
    ${catkin_LIBRARIES}
  )
 
