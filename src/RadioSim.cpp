@@ -12,7 +12,9 @@
 //TF Headers
 #include <tf/transform_listener.h>
 
-#define STABILIZE_SAMPLE_THRESHOLD 10
+//the higher the number the more stable the 
+//map will be but the longer it will wait
+#define STABILIZE_SAMPLE_THRESHOLD 25 
 
 ros::NodeHandle * nh;
 
