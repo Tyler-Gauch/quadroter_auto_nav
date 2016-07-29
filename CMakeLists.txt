@@ -130,7 +130,7 @@ include_directories(
 
  add_executable(main src/main.cpp src/AutoNav.h src/AutoNav.cpp src/Problem.h src/Problem.cpp src/State.h src/State.cpp src/CommonUtils.h src/CommonUtils.cpp src/Debugger.h src/Debugger.cpp)
 
- add_executable(radio_sim src/RadioSim.cpp src/RadioSim.h)
+ add_executable(radio_sim src/RadioSim.cpp src/RadioSim.h src/PID.cpp src/PID.h)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
