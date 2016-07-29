@@ -1,42 +1,85 @@
-#include <iostream>
-#include <cmath>
+#include "RadioSim.h"
 
-#include <ros/ros.h>
-//ROS Topic Headers
-#include <geometry_msgs/Twist.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/PointStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
-#include <sensor_msgs/Range.h>
-
-//TF Headers
-#include <tf/transform_listener.h>
-
-//the higher the number the more stable the 
-//map will be but the longer it will wait
-#define STABILIZE_SAMPLE_THRESHOLD 25 
-
-ros::NodeHandle * nh;
-
-ros::Subscriber cmd_vel_sub;	//gets the wanted cmd_vel tranforms
-ros::Subscriber pose_sub;	//gets the wanted cmd_vel tranforms
-
-float changeY = 0, changeX = 0;
-float wantedHoldX = 0, wantedHoldY = 0;
-bool firstTime = true;
-bool mapStabilized = false;
-float currentXTotal = 0, currentYTotal = 0;
-int numSamples = 0;
-
-void cmdVelCallback(const geometry_msgs::Twist &lastCommand)
-{
-	
+//constrain an integer to a specific range
+int constrain_int32(int input, int min, int max){
+	if(input < min)
+	{
+		return min;
+	}else if(input > max)
+	{
+		return max;
+	}else{
+		return input;
+	}
 }
 
+//get the needed correction from the PID controller 
+//in a certain direction (x or y)
+int getCorrection(float error, PID pid, int & of_dir){
+    float new_dir = 0;
+    float p,i,d;
+
+    // check if new optflow data available
+	p = pid.get_p(-error);
+	i = pid.get_i(-error, 1.0f);
+	d = pid.get_d(-error, 1.0f);
+    
+    new_dir = p+i+d;
+
+    // limit amount of change and maximum angle
+    of_dir = constrain_int32(new_dir, (of_dir-20), (of_dir+20));
+
+    // limit max angle
+    of_dir = constrain_int32(of_dir, -1000, 1000);
+
+    return of_dir;
+}
+
+void resetX(){
+	currentXTotal = 0;
+    pidX.reset_I();
+    wantedHoldX = currentX;
+}
+
+void resetY(){
+	currentYTotal = 0;
+    pidY.reset_I();
+    wantedHoldY = currentY;
+}
+
+//retrieves last message to move the quadrotor and converts
+//into PWM output for the motors.
+void cmdVelCallback(const geometry_msgs::Twist &lastCommand){
+	float rollTrim = 1000;
+	float pitchTrim = 1000;
+	float yawTrim = 1000;
+	float throttleTrim = 1000;
+
+	//lin x = roll
+	float roll = (lastCommand.linear.x * rollTrim) + rollTrim;
+	if(roll != rollTrim)
+	{
+		resetX();
+	}
+	//lin y = pitch
+	float pitch = (lastCommand.linear.y * pitchTrim) + pitchTrim;
+	if(pitch != pitchTrim)
+	{
+		resetY();
+	}
+
+	//lin z = throttle
+	float throttle = (lastCommand.linear.z * throttleTrim) + throttleTrim;
+	//ang z = yaw
+	float yaw = (lastCommand.angular.z * yawTrim) + yawTrim;
+}
+
+//retrieves last updated position and calculates the neccessary movement
+//needed to stay in one position.
 void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 	
-	float currentX = currentPosition.pose.position.x * 100; //into cm
-	float currentY = currentPosition.pose.position.y * 100; //into cm
+	currentX = currentPosition.pose.position.x * 100; //into cm
+	currentY = currentPosition.pose.position.y * 100; //into cm
 
 	if(firstTime)
 	{
@@ -46,15 +89,15 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 		return;
 	}
 
-	changeX = currentX - wantedHoldX;
-	changeY = currentY - wantedHoldY;
+	float changeX = currentX - wantedHoldX;
+	float changeY = currentY - wantedHoldY;
 
-	if(abs(changeX) < 0.5f)
+	if(abs(changeX) < CUTOFF_THRESHOLD)
 	{
 		changeX = 0;
 	}
 
-	if(abs(changeY) < 0.5f)
+	if(abs(changeY) < CUTOFF_THRESHOLD)
 	{
 		changeY = 0;
 	}
@@ -71,7 +114,7 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 			float avgX = currentXTotal / numSamples;
 			float avgY = currentYTotal / numSamples;			
 
-			if(avgX > 1 || avgY > 1)
+			if(avgX > AVG_THRESHOLD || avgY > AVG_THRESHOLD)
 			{
 				numSamples = 0;
 				currentXTotal = 0;
@@ -87,10 +130,13 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 		}
 	}
 
-	std::cout << "DX\t" << changeX << "\tDY:\t" << changeY << std::endl;
+	getCorrection(changeX, pidX, of_roll);
+	getCorrection(changeY, pidY, of_pitch);
 
+	std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
 }
 
+//you should know what this is
 int main(int argc, char** argv){
 
 	ros::init(argc, argv, "quadroter_auto_nav_radio_sim");
