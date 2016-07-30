@@ -74,12 +74,57 @@ void cmdVelCallback(const geometry_msgs::Twist &lastCommand){
 	float yaw = (lastCommand.angular.z * yawTrim) + yawTrim;
 }
 
+float vectorDot(geometry_msgs::Point a, geometry_msgs::Point b){
+	return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+}
+
+geometry_msgs::Point vectorMult(geometry_msgs::Point a, float scalar){
+	geometry_msgs::Point c;
+	c.x = a.x * scalar;
+	c.y = a.y * scalar;
+	c.z = a.z * scalar;
+	return c;
+}
+
+geometry_msgs::Point vectorAdd(geometry_msgs::Point a, geometry_msgs::Point b){
+	geometry_msgs::Point c;
+	c.x = a.x + b.x;
+	c.y = a.y + b.y;
+	c.z = a.z + b.z;
+	return c;
+}
+
+geometry_msgs::Point vectorCross(geometry_msgs::Point a, geometry_msgs::Point b){
+	geometry_msgs::Point c;
+	c.x = (a.y * b.z) - (a.z * b.y);
+	c.y = (a.z * b.x) - (a.x * b.z);
+	c.z = (a.x * b.y) - (a.y * b.x);
+	return c;
+}
+
+geometry_msgs::Point rotateQuat(geometry_msgs::Point p, geometry_msgs::Quaternion q){
+	geometry_msgs::Point quatVector;
+	quatVector.x = q.x;
+	quatVector.y = q.y;
+	quatVector.z = q.z;
+
+	float scalar = q.w;
+
+	geometry_msgs::Point a = vectorMult(quatVector, 2 * vectorDot(quatVector, p));
+	geometry_msgs::Point b = vectorMult(p, scalar*scalar - vectorDot(quatVector, quatVector));
+	geometry_msgs::Point c = vectorMult(vectorCross(quatVector, p), 2*scalar);
+
+	return vectorAdd(vectorAdd(a, b), c);
+}
+
 //retrieves last updated position and calculates the neccessary movement
 //needed to stay in one position.
 void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
-	
-	currentX = currentPosition.pose.position.x * 100; //into cm
-	currentY = currentPosition.pose.position.y * 100; //into cm
+
+	geometry_msgs::Point pos = rotateQuat(currentPosition.pose.position, currentPosition.pose.orientation);
+
+	currentX = pos.x * 100; //into cm
+	currentY = pos.y * 100; //into cm
 
 	if(firstTime)
 	{
@@ -143,12 +188,23 @@ int main(int argc, char** argv){
 
 	nh = new ros::NodeHandle();
 
+	//setup serial
+	boost::asio::io_service io;
+	serial = new Serial("/dev/ttyAMA0", 57600, io);
+
 	cmd_vel_sub = nh->subscribe("/cmd_vel", 1, cmdVelCallback); //topic, queue size, callback
 	pose_sub = nh->subscribe("/slam_out_pose", 1, poseCallback); //topic, queue size, callback
 
 	while(nh->ok())
 	{
 		ros::spinOnce(); // needed to get subscribed messages
+		char input[1000];
+		serial->read(input, 1000);
+		for(int i = 0; i < 1000; i++)
+		{
+			std::cout << input[i];
+		}
+		std::cout << std::endl;
 	}
 
 }
