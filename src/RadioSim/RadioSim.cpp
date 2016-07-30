@@ -188,12 +188,23 @@ int main(int argc, char** argv){
 
 	nh = new ros::NodeHandle();
 
+	//setup serial
+	boost::asio::io_service io;
+	serial = new Serial("/dev/ttyAMA0", 57600, io);
+
 	cmd_vel_sub = nh->subscribe("/cmd_vel", 1, cmdVelCallback); //topic, queue size, callback
 	pose_sub = nh->subscribe("/slam_out_pose", 1, poseCallback); //topic, queue size, callback
 
 	while(nh->ok())
 	{
 		ros::spinOnce(); // needed to get subscribed messages
+		char input[1000];
+		serial->read(input, 1000);
+		for(int i = 0; i < 1000; i++)
+		{
+			std::cout << input[i];
+		}
+		std::cout << std::endl;
 	}
 
 }

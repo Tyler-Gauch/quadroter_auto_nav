@@ -13,6 +13,7 @@
 #include <tf/transform_listener.h>
 
 #include "PID.h"
+#include "Serial.h"
 
 
 //the higher the number the more stable the 
@@ -82,3 +83,5 @@ PID pidY(
 	PID_Y_I,
 	PID_Y_D,
 	PID_Y_IMAX);
+
+Serial * serial;
