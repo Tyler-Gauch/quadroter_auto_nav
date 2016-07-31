@@ -6,7 +6,7 @@ project(quadroter_auto_nav)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  tf
+# tf
   serial
 )
 
@@ -131,18 +131,18 @@ include_directories(
 
 ## Declare a C++ executable
 
- add_executable(main 
- 	src/Navigation/main.cpp 
- 	src/Navigation/AutoNav.h 
- 	src/Navigation/AutoNav.cpp 
- 	src/Navigation/Problem.h 
- 	src/Navigation/Problem.cpp 
- 	src/Navigation/State.h 
- 	src/Navigation/State.cpp 
- 	src/Navigation/CommonUtils.h 
- 	src/Navigation/CommonUtils.cpp 
- 	src/Navigation/Debugger.h 
- 	src/Navigation/Debugger.cpp)
+# add_executable(main 
+#	src/Navigation/main.cpp 
+# 	src/Navigation/AutoNav.h 
+# 	src/Navigation/AutoNav.cpp 
+# 	src/Navigation/Problem.h 
+# 	src/Navigation/Problem.cpp 
+# 	src/Navigation/State.h 
+# 	src/Navigation/State.cpp 
+# 	src/Navigation/CommonUtils.h 
+# 	src/Navigation/CommonUtils.cpp 
+# 	src/Navigation/Debugger.h 
+# 	src/Navigation/Debugger.cpp)
 
  add_executable(radio_sim 
  	src/RadioSim/RadioSim.cpp 
@@ -157,10 +157,10 @@ include_directories(
 # add_dependencies(quadroter_auto_nav_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(
- 	main
-   ${catkin_LIBRARIES}
- )
+# target_link_libraries(
+# 	main
+#   ${catkin_LIBRARIES}
+# )
 
  target_link_libraries(
  	radio_sim
