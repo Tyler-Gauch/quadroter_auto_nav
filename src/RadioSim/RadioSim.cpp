@@ -178,7 +178,22 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 	getCorrection(changeX, pidX, of_roll);
 	getCorrection(changeY, pidY, of_pitch);
 
-	std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
+	// Only print to screen if we moved positions
+	if (prevX != currentX || prevY != currentY) {
+		std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
+	}
+
+	prevX = currentX;
+	prevY = currentY;
+}
+
+// Function runs on new thread as it is blocking
+void checkForInput() {
+	while (ros::ok()) {
+		std::string input;
+		std::getline(std::cin, input);
+		serialInst.write(input);
+	}
 }
 
 //you should know what this is
@@ -212,6 +227,9 @@ int main(int argc, char** argv){
 	cmd_vel_sub = nh->subscribe("/cmd_vel", 1, cmdVelCallback); //topic, queue size, callback
 	pose_sub = nh->subscribe("/slam_out_pose", 1, poseCallback); //topic, queue size, callback
 
+	// Create a new thread to write to serial
+	boost::thread writeThread(checkForInput);
+
 	while(nh->ok())
 	{
 		ros::spinOnce(); // needed to get subscribed messages
@@ -225,6 +243,10 @@ int main(int argc, char** argv){
 			}
 			std::cout << result << std::endl;
 		}
+
+
 	}
+
+	writeThread.join();
 
 }
