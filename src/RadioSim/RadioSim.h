@@ -57,7 +57,7 @@ float wantedHoldX = 0, wantedHoldY = 0;
 
 //last known x and y position in cm
 float currentX, currentY;
-float prevX = 0, prevY = 0;
+
 
 //if its first time for init stuff
 bool firstTime = true;

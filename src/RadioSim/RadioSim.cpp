@@ -179,12 +179,10 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 	getCorrection(changeY, pidY, of_pitch);
 
 	// Only print to screen if we moved positions
-	if (prevX != currentX || prevY != currentY) {
-		std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
+	if (changeX != 0 || changeY != 0) {
+//		std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
 	}
 
-	prevX = currentX;
-	prevY = currentY;
 }
 
 // Function runs on new thread as it is blocking
@@ -192,7 +190,9 @@ void checkForInput() {
 	while (ros::ok()) {
 		std::string input;
 		std::getline(std::cin, input);
-		serialInst.write(input);
+//		std::cout << "Got: " << input << ". Writing to serial...." << std::endl;
+		int sizeSent = serialInst.write(input);
+		std::cout << "Wrote " << sizeSent << " bytes to serial\n";
 	}
 }
 
@@ -207,7 +207,7 @@ int main(int argc, char** argv){
 	try {
 		serialInst.setPort("/dev/ttyAMA0");
 		serialInst.setBaudrate(57600);
-		serial::Timeout to = serial::Timeout::simpleTimeout(10000);  // 10 second timeout
+		serial::Timeout to = serial::Timeout::simpleTimeout(100);  // 100 ms timeout
 		serialInst.setTimeout(to);
 
 		serialInst.open();
@@ -248,5 +248,7 @@ int main(int argc, char** argv){
 	}
 
 	writeThread.join();
-
+	
+	// Close the serial port
+	serialInst.close();
 }
