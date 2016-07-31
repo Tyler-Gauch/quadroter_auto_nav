@@ -149,8 +149,10 @@ include_directories(
  	src/RadioSim/RadioSim.h 
  	src/RadioSim/PID.cpp 
  	src/RadioSim/PID.h
- 	src/RadioSim/SerialHandler.cpp
- 	src/RadioSim/SerialHandler.h)
+ 	src/RadioSim/QuadVector.cpp
+ 	src/RadioSim/QuadVector.h
+ 	src/RadioSim/Radio.cpp
+ 	src/RadioSim/Radio.h)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above

@@ -6,7 +6,6 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PointStamped.h>
-//#include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/Range.h>
 
 //TF Headers
@@ -15,10 +14,14 @@
 // Serial handler
 #include <serial/serial.h>
 #include <string>
+#include <cctype>
+#include <sstream>
 
 #include <boost/thread/thread.hpp>
 
 #include "PID.h"
+#include "QuadVector.h"
+#include "Radio.h"
 //#include "SerialHandler.h"
 
 
@@ -42,7 +45,9 @@
 #define PID_Y_D 	0
 #define PID_Y_IMAX 	0
 
-//init ros node
+#define CONFIG_COMMAND	"initial_start"
+
+//init ros::NodeHandle priv_nh("~");ros node
 ros::NodeHandle * nh;
 
 //init subscribers
@@ -93,3 +98,8 @@ PID pidY(
 
 serial::Serial serialInst;
 //SerialHandler *serialInst;
+
+Radio throttle;
+Radio roll;
+Radio pitch;
+Radio yaw;

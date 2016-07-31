@@ -50,78 +50,31 @@ void resetY(){
 //retrieves last message to move the quadrotor and converts
 //into PWM output for the motors.
 void cmdVelCallback(const geometry_msgs::Twist &lastCommand){
-	float rollTrim = 1000;
-	float pitchTrim = 1000;
-	float yawTrim = 1000;
-	float throttleTrim = 1000;
-
 	//lin x = roll
-	float roll = (lastCommand.linear.x * rollTrim) + rollTrim;
-	if(roll != rollTrim)
+	roll.setOutput((lastCommand.linear.y * roll.getTrim()) + roll.getTrim());
+	if(roll.getOutput() != roll.getTrim())
 	{
 		resetX();
 	}
 	//lin y = pitch
-	float pitch = (lastCommand.linear.y * pitchTrim) + pitchTrim;
-	if(pitch != pitchTrim)
+	pitch.setOutput((lastCommand.linear.x * pitch.getTrim()) + pitch.getTrim());
+	if(pitch.getOutput() != pitch.getTrim())
 	{
 		resetY();
 	}
 
 	//lin z = throttle
-	float throttle = (lastCommand.linear.z * throttleTrim) + throttleTrim;
+	throttle.setOutput((lastCommand.linear.z * throttle.getTrim()) + throttle.getTrim());
 	//ang z = yaw
-	float yaw = (lastCommand.angular.z * yawTrim) + yawTrim;
-}
-
-float vectorDot(geometry_msgs::Point a, geometry_msgs::Point b){
-	return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
-}
-
-geometry_msgs::Point vectorMult(geometry_msgs::Point a, float scalar){
-	geometry_msgs::Point c;
-	c.x = a.x * scalar;
-	c.y = a.y * scalar;
-	c.z = a.z * scalar;
-	return c;
-}
-
-geometry_msgs::Point vectorAdd(geometry_msgs::Point a, geometry_msgs::Point b){
-	geometry_msgs::Point c;
-	c.x = a.x + b.x;
-	c.y = a.y + b.y;
-	c.z = a.z + b.z;
-	return c;
-}
-
-geometry_msgs::Point vectorCross(geometry_msgs::Point a, geometry_msgs::Point b){
-	geometry_msgs::Point c;
-	c.x = (a.y * b.z) - (a.z * b.y);
-	c.y = (a.z * b.x) - (a.x * b.z);
-	c.z = (a.x * b.y) - (a.y * b.x);
-	return c;
-}
-
-geometry_msgs::Point rotateQuat(geometry_msgs::Point p, geometry_msgs::Quaternion q){
-	geometry_msgs::Point quatVector;
-	quatVector.x = q.x;
-	quatVector.y = q.y;
-	quatVector.z = q.z;
-
-	float scalar = q.w;
-
-	geometry_msgs::Point a = vectorMult(quatVector, 2 * vectorDot(quatVector, p));
-	geometry_msgs::Point b = vectorMult(p, scalar*scalar - vectorDot(quatVector, quatVector));
-	geometry_msgs::Point c = vectorMult(vectorCross(quatVector, p), 2*scalar);
-
-	return vectorAdd(vectorAdd(a, b), c);
+	yaw.setOutput((lastCommand.angular.z * yaw.getTrim()) + yaw.getTrim());
 }
 
 //retrieves last updated position and calculates the neccessary movement
 //needed to stay in one position.
 void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 
-	geometry_msgs::Point pos = rotateQuat(currentPosition.pose.position, currentPosition.pose.orientation);
+	QuadVector pos(currentPosition.pose.position);
+	pos = pos.rotate(currentPosition.pose.orientation);
 
 	currentX = pos.x * 100; //into cm
 	currentY = pos.y * 100; //into cm
@@ -183,7 +136,192 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 //		std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
 	}
 
+	roll.setOutput(roll.getOutput() + of_roll);
+	pitch.setOutput(pitch.getOutput() + of_pitch);
+
 }
+
+int getCheckSum(std::string message){
+	int checkSum = 0;
+	for(int i = 0; i < message.length(); i++){
+		checkSum += message[i];
+	}
+	std::cout << "Calculated: " << checkSum << std::endl;
+	return checkSum;
+}
+
+void serialWriteWithCheckSum(std::string message){
+	std::stringstream s;
+
+	s << message << "(" << getCheckSum(message) << ")" << std::endl;
+	message = s.str();
+
+	std::cout << "Sent: " << message << std::endl;
+	serialInst.write(message);
+}
+
+//build out the needed drive command and send it to the 
+//quadcopter
+void sendPWM(){
+	std::stringstream s;
+
+	s << "throttle:" << throttle.getOutput();
+	s << ",pitch:"   << pitch.getOutput();
+	s << ",roll:"    << roll.getOutput();
+	s << ",yaw:"     << yaw.getOutput();
+	serialWriteWithCheckSum(s.str());
+
+}
+
+bool checkCheckSum(std::string message){
+
+	std::string::size_type pos = message.find("(");
+
+	//no ( found we didn't get a checksum
+	if(pos == std::string::npos)
+	{
+		return false;
+	}
+
+	std::string::size_type pos2 = message.find(")");
+	//no ) ofund we didn't get entire checksum
+	if(pos2 == std::string::npos)
+	{
+		return false;
+	}
+
+	std::string checkSum = message.substr(pos+1, pos2-1 - pos+1);
+	message = message.substr(0, pos);
+	std::cout << "CheckSum: " << checkSum << " Message: " << message << std::endl;
+
+	int cs;
+	std::istringstream(checkSum) >> cs;
+
+	if(cs != getCheckSum(message))
+	{
+		return false;
+	}
+	
+	return true;
+
+
+}
+
+//waits for the apm to send its configuration
+//so we can get the proper values
+void getConfig(){
+	int waiting_count = 0;
+	std::cout << "Waiting for APM to Connect..." << std::endl;
+	bool connected = false;
+	while(true)
+	{
+		//just a little something so we no 
+		//it didn't die
+
+		if(serialInst.available()){
+			std::string config;
+			config = serialInst.read(10000); //10000 might be too big not sure yet
+
+			std::cout << "Checking: " << config << std::endl;
+
+			if(!checkCheckSum(config))
+			{
+				continue;
+			}else if(config.find("APM connected") != std::string::npos)
+			{
+				std::cout << "APM Connected." << std::endl;
+				serialWriteWithCheckSum(CONFIG_COMMAND);
+				std::cout << "Waiting for config..." << std::endl;
+				connected = true;
+				continue;
+			}
+
+			if(!connected)
+			{
+				continue;
+			}
+
+			std::cout << "Received Config: " << config << std::endl;
+			config = config.substr(0, config.find("("));
+			config.append(",");
+
+			while(config.length() > 0)
+			{
+				std::string::size_type posColon = config.find(":");
+				std::string::size_type posComma = config.find(",");
+				std::string param = config.substr(0, posColon);
+				std::string value = config.substr(posColon+1, (posComma) - (posColon+1));
+
+				std::cout << "Param: " << param << " Value: " << value << std::endl;
+
+				if(param.find("thr") != std::string::npos)
+				{
+					int v;
+					std::istringstream(value) >> v;
+					if(param.find("min") != std::string::npos){
+						throttle.setMin(v);
+					}else if(param.find("max") != std::string::npos)
+					{
+						throttle.setMax(v);
+					}else if(param.find("trim") != std::string::npos)
+					{
+						throttle.setTrim(v);
+					}
+				}else if(param.find("roll") != std::string::npos)
+				{
+					int v;
+					std::istringstream(value) >> v;
+					if(param.find("min") != std::string::npos){
+						roll.setMin(v);
+					}else if(param.find("max") != std::string::npos)
+					{
+						roll.setMax(v);
+					}else if(param.find("trim") != std::string::npos)
+					{
+						roll.setTrim(v);
+					}
+				}else if(param.find("pitch") != std::string::npos)
+				{
+					int v;
+					std::istringstream(value) >> v;
+					if(param.find("min") != std::string::npos){
+						pitch.setMin(v);
+					}else if(param.find("max") != std::string::npos)
+					{
+						pitch.setMax(v);
+					}else if(param.find("trim") != std::string::npos)
+					{
+						pitch.setTrim(v);
+					}
+				}else if(param.find("yaw") != std::string::npos)
+				{
+					int v;
+					std::istringstream(value) >> v;
+					if(param.find("min") != std::string::npos){
+						yaw.setMin(v);
+					}else if(param.find("max") != std::string::npos)
+					{
+						yaw.setMax(v);
+					}else if(param.find("trim") != std::string::npos)
+					{
+						yaw.setTrim(v);
+					}
+				}
+
+				config = config.substr(posComma+1);
+			}
+
+			break;
+		}
+	}
+
+	throttle.setOutput(throttle.getTrim());
+	roll.setOutput(roll.getTrim());
+	pitch.setOutput(pitch.getTrim());
+	yaw.setOutput(yaw.getTrim());
+
+}
+
 
 // Function runs on new thread as it is blocking
 void checkForInput() {
@@ -203,11 +341,20 @@ int main(int argc, char** argv){
 
 	nh = new ros::NodeHandle();
 
+	ros::NodeHandle priv_nh("~");
+	std::string port;
+  	int baud_rate;
+  	int timeout;
+
+	priv_nh.param("port", port, std::string("/dev/ttyAMA0"));
+  	priv_nh.param("baud_rate", baud_rate, 57600);
+  	priv_nh.param("timeout", timeout, 100);
+
 	//setup serial
 	try {
-		serialInst.setPort("/dev/ttyAMA0");
-		serialInst.setBaudrate(57600);
-		serial::Timeout to = serial::Timeout::simpleTimeout(100);  // 100 ms timeout
+		serialInst.setPort(port);
+		serialInst.setBaudrate(baud_rate);
+		serial::Timeout to = serial::Timeout::simpleTimeout(timeout);  // 100 ms timeout
 		serialInst.setTimeout(to);
 
 		serialInst.open();
@@ -230,6 +377,9 @@ int main(int argc, char** argv){
 	// Create a new thread to write to serial
 	boost::thread writeThread(checkForInput);
 
+	//first thing is get the config
+	getConfig();
+
 	while(nh->ok())
 	{
 		ros::spinOnce(); // needed to get subscribed messages
@@ -244,7 +394,7 @@ int main(int argc, char** argv){
 			std::cout << result << std::endl;
 		}
 
-
+		sendPWM();
 	}
 
 	writeThread.join();
