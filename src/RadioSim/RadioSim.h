@@ -6,11 +6,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PointStamped.h>
-#include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/Range.h>
-
-//TF Headers
-#include <tf/transform_listener.h>
 
 #include "PID.h"
 #include "Serial.h"
