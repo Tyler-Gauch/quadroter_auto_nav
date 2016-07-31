@@ -7,6 +7,7 @@ project(quadroter_auto_nav)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   tf
+  serial
 )
 
 ## System dependencies are found with CMake's conventions
@@ -99,6 +100,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
+	CATKIN_DEPENDS
+		serial
 #  INCLUDE_DIRS include
 #  LIBRARIES quadroter_auto_nav
 #  CATKIN_DEPENDS roscpp
@@ -146,8 +149,8 @@ include_directories(
  	src/RadioSim/RadioSim.h 
  	src/RadioSim/PID.cpp 
  	src/RadioSim/PID.h
- 	src/RadioSim/Serial.cpp
- 	src/RadioSim/Serial.h)
+ 	src/RadioSim/SerialHandler.cpp
+ 	src/RadioSim/SerialHandler.h)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above

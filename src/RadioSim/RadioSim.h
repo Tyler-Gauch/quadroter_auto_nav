@@ -12,8 +12,12 @@
 //TF Headers
 #include <tf/transform_listener.h>
 
+// Serial handler
+#include <serial/serial.h>
+#include <string>
+
 #include "PID.h"
-#include "Serial.h"
+//#include "SerialHandler.h"
 
 
 //the higher the number the more stable the 
@@ -84,4 +88,5 @@ PID pidY(
 	PID_Y_D,
 	PID_Y_IMAX);
 
-Serial * serial;
+serial::Serial serialInst;
+//SerialHandler *serialInst;

@@ -189,8 +189,25 @@ int main(int argc, char** argv){
 	nh = new ros::NodeHandle();
 
 	//setup serial
-	boost::asio::io_service io;
-	serial = new Serial("/dev/ttyAMA0", 57600, io);
+	try {
+		serialInst.setPort("/dev/ttyAMA0");
+		serialInst.setBaudrate(57600);
+		serial::Timeout to = serial::Timeout::simpleTimeout(10000);  // 10 second timeout
+		serialInst.setTimeout(to);
+
+		serialInst.open();
+	} catch (serial::IOException& e) {
+		ROS_ERROR_STREAM("Unable to open serial port");
+		return -1;
+	}
+
+	// Ensure serial port is initialized and open
+	if (serialInst.isOpen()) {
+		ROS_INFO_STREAM("Serial port initialized successfully...");
+	} else {
+		ROS_ERROR_STREAM("Serial port initialization failed...");
+		return -1;
+	}
 
 	cmd_vel_sub = nh->subscribe("/cmd_vel", 1, cmdVelCallback); //topic, queue size, callback
 	pose_sub = nh->subscribe("/slam_out_pose", 1, poseCallback); //topic, queue size, callback
@@ -198,13 +215,16 @@ int main(int argc, char** argv){
 	while(nh->ok())
 	{
 		ros::spinOnce(); // needed to get subscribed messages
-		char input[1000];
-		serial->read(input, 1000);
-		for(int i = 0; i < 1000; i++)
-		{
-			std::cout << input[i];
+		std::string result;
+
+		if (serialInst.available()) {
+			try {
+				result = serialInst.read(1000); //.read(input, 1000);
+			} catch (serial::SerialException& e) {
+				// Serial error occurred
+			}
+			std::cout << result << std::endl;
 		}
-		std::cout << std::endl;
 	}
 
 }
