@@ -135,10 +135,6 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 	if (changeX != 0 || changeY != 0) {
 //		std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
 	}
-
-	roll.setOutput(roll.getOutput() + of_roll);
-	pitch.setOutput(pitch.getOutput() + of_pitch);
-
 }
 
 int getCheckSum(std::string message){
@@ -165,10 +161,10 @@ void serialWriteWithCheckSum(std::string message){
 void sendPWM(){
 	std::stringstream s;
 
-	s << "throttle:" << throttle.getOutput();
-	s << ",pitch:"   << pitch.getOutput();
-	s << ",roll:"    << roll.getOutput();
-	s << ",yaw:"     << yaw.getOutput();
+	//s << "throttle:" << throttle.getOutput() << ",";
+	s << "pitch:"   << pitch.getOutput() + of_pitch << ",";
+	s << "roll:"    << roll.getOutput() + of_roll << ",";
+	s << "yaw:"     << yaw.getOutput() << ",";
 	serialWriteWithCheckSum(s.str());
 
 }
