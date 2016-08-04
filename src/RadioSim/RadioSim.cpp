@@ -1,5 +1,10 @@
 #include "RadioSim.h"
 
+#define DISTANCE_STOP_THRESHOLD 50
+
+float lastChangeX, lastChangeY;
+bool mapGood = true;
+
 //constrain an integer to a specific range
 int constrain_int32(int input, int min, int max){
 	if(input < min)
@@ -36,7 +41,7 @@ int getCorrection(float error, PID pid, int & of_dir){
 }
 
 void resetX(){
-	currentXTotal = 0;
+    currentXTotal = 0;
     pidX.reset_I();
     wantedHoldX = currentX;
 }
@@ -72,6 +77,16 @@ void cmdVelCallback(const geometry_msgs::Twist &lastCommand){
 //retrieves last updated position and calculates the neccessary movement
 //needed to stay in one position.
 void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
+
+	if(!mapGood)
+	{
+		std::cerr << "Map not good" << std::endl;
+		of_roll = 0;
+		of_pitch = 0;
+		pitch.setOutput(pitch.getTrim());
+		roll.setOutput(roll.getTrim());
+		return;
+	}
 
 	QuadVector pos(currentPosition.pose.position);
 	pos = pos.rotate(currentPosition.pose.orientation);
@@ -109,6 +124,7 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 
 		if(numSamples > STABILIZE_SAMPLE_THRESHOLD)
 		{
+			std::cout << "Waiting for map to stabilize..." << std::endl;
 			float avgX = currentXTotal / numSamples;
 			float avgY = currentYTotal / numSamples;			
 
@@ -128,13 +144,23 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 		}
 	}
 
-	getCorrection(changeX, pidX, of_roll);
-	getCorrection(changeY, pidY, of_pitch);
-
-	// Only print to screen if we moved positions
-	if (changeX != 0 || changeY != 0) {
-//		std::cout << "DX\t" << of_roll << "\tDY:\t" << of_pitch << std::endl;
+	if(abs(changeY - lastChangeY) > DISTANCE_STOP_THRESHOLD || abs(changeX - lastChangeX) > DISTANCE_STOP_THRESHOLD )
+	{
+		of_pitch = 0;
+		pitch.setOutput(pitch.getTrim());
+		of_roll = 0;
+		roll.setOutput(roll.getTrim());
+		mapGood = false;
+	}else{
+		getCorrection(changeX, pidY, of_pitch);
+//		of_pitch = -of_pitch;
+		getCorrection(changeY, pidX, of_roll);
 	}
+
+	lastChangeX = changeX;
+	lastChangeY = changeY;
+	// Only print to screen if we moved positions
+	std::cout << "DX\t" << changeX << "\tDY:\t" << changeY << " wantedHoldX: " << wantedHoldX << " wantedHoldY: " << wantedHoldY << " of_roll: " << of_roll << " of_pitch: " << of_pitch << std::endl;
 }
 
 int getCheckSum(std::string message){
@@ -142,7 +168,7 @@ int getCheckSum(std::string message){
 	for(int i = 0; i < message.length(); i++){
 		checkSum += message[i];
 	}
-	std::cout << "Calculated: " << checkSum << std::endl;
+//	std::cout << "Calculated: " << checkSum << std::endl;
 	return checkSum;
 }
 
@@ -152,7 +178,7 @@ void serialWriteWithCheckSum(std::string message){
 	s << message << "(" << getCheckSum(message) << ")" << std::endl;
 	message = s.str();
 
-	std::cout << "Sent: " << message << std::endl;
+	std::cout << "Sent: " << message << " (of_roll: " << of_roll << ", of_pitch: " << of_pitch << ")" << std::endl;
 	serialInst.write(message);
 }
 
@@ -162,9 +188,9 @@ void sendPWM(){
 	std::stringstream s;
 
 	//s << "throttle:" << throttle.getOutput() << ",";
-	s << "pitch:"   << pitch.getOutput() + of_pitch << ",";
+	s << "pitch:"   << pitch.getOutput() - of_pitch << ",";
 	s << "roll:"    << roll.getOutput() + of_roll << ",";
-	s << "yaw:"     << yaw.getOutput() << ",";
+//	s << "yaw:"     << yaw.getOutput() << ",";
 	serialWriteWithCheckSum(s.str());
 
 }
@@ -207,7 +233,7 @@ bool checkCheckSum(std::string message){
 //so we can get the proper values
 void getConfig(){
 	int waiting_count = 0;
-	std::cout << "Waiting for APM to Connect..." << std::endl;
+	std::cerr << "Waiting for APM to Connect..." << std::endl;
 	bool connected = false;
 	while(true)
 	{
@@ -218,14 +244,14 @@ void getConfig(){
 			std::string config;
 			config = serialInst.read(10000); //10000 might be too big not sure yet
 
-			std::cout << "Checking: " << config << std::endl;
+			std::cerr << "Checking: " << config << std::endl;
 
 			if(!checkCheckSum(config))
 			{
 				continue;
 			}else if(config.find("APM connected") != std::string::npos)
 			{
-				std::cout << "APM Connected." << std::endl;
+				std::cerr << "APM Connected." << std::endl;
 				serialWriteWithCheckSum(CONFIG_COMMAND);
 				std::cout << "Waiting for config..." << std::endl;
 				connected = true;
@@ -306,7 +332,7 @@ void getConfig(){
 
 				config = config.substr(posComma+1);
 			}
-
+			std::cerr << "Exiting initial_setup" << std::endl;
 			break;
 		}
 	}
@@ -324,9 +350,15 @@ void checkForInput() {
 	while (ros::ok()) {
 		std::string input;
 		std::getline(std::cin, input);
-//		std::cout << "Got: " << input << ". Writing to serial...." << std::endl;
-		int sizeSent = serialInst.write(input);
-		std::cout << "Wrote " << sizeSent << " bytes to serial\n";
+		std::cerr << "Got: " << input << ". Writing to serial...." << std::endl;
+		if(input == "initial_start")
+		{
+			mapGood = false;
+			getConfig();
+			mapGood = true;
+		}else{
+			serialWriteWithCheckSum(input);
+		}
 	}
 }
 
@@ -385,9 +417,11 @@ int main(int argc, char** argv){
 			try {
 				result = serialInst.read(1000); //.read(input, 1000);
 			} catch (serial::SerialException& e) {
+
 				// Serial error occurred
+				std::cerr << "Error with main loop read" << std::endl;
 			}
-			std::cout << result << std::endl;
+			std::cerr << result << std::endl;
 		}
 
 		sendPWM();
