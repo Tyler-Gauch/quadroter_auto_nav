@@ -358,7 +358,30 @@ void checkForInput() {
 			mapGood = false;
 			getConfig();
 			mapGood = true;
-		}else{
+		}else if(input.find("P:") != std::string::npos){
+			std::string val = input.substr(input.find("P:")+2);
+			pidX.kP(atof(val.c_str()));
+			pidY.kP(atof(val.c_str()));
+			std::cerr << "P: " << pidX.kP() << std::endl;
+		}else if(input.find("I:") != std::string::npos){
+			std::string val = input.substr(input.find("I:")+2);
+			pidX.kI(atof(val.c_str()));
+			pidY.kI(atof(val.c_str()));
+			std::cerr << "I: " << pidX.kI() << std::endl;
+		}else if(input.find("D:") != std::string::npos){
+			std::string val = input.substr(input.find("D:")+2);
+			pidX.kD(atof(val.c_str()));
+			pidY.kD(atof(val.c_str()));
+
+			std::cerr << "D: " << pidX.kD() << std::endl;
+		}else if(input.find("M:") != std::string::npos){
+			std::string val = input.substr(input.find("M:")+2);
+			pidX.imax(atof(val.c_str()));
+			pidY.imax(atof(val.c_str()));
+
+			std::cerr << "IMAX: " << pidX.imax() << std::endl;
+		}
+		else{
 			serialWriteWithCheckSum(input);
 		}
 	}
