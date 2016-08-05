@@ -3,6 +3,9 @@
 #define DISTANCE_STOP_THRESHOLD 50
 
 float lastChangeX, lastChangeY;
+QuadVector lastPos;
+float dt;
+uint64_t lastTime;
 bool mapGood = true;
 
 //constrain an integer to a specific range
@@ -26,8 +29,8 @@ int getCorrection(float error, PID pid, int & of_dir){
 
     // check if new optflow data available
 	p = pid.get_p(-error);
-	i = pid.get_i(-error, 1.0f);
-	d = pid.get_d(-error, 1.0f);
+	i = pid.get_i(-error, dt);
+	d = pid.get_d(-error, dt);
     
     new_dir = p+i+d;
 
@@ -35,7 +38,7 @@ int getCorrection(float error, PID pid, int & of_dir){
     of_dir = constrain_int32(new_dir, (of_dir-20), (of_dir+20));
 
     // limit max angle
-    of_dir = constrain_int32(of_dir, -1000, 1000);
+    of_dir = constrain_int32(of_dir, -75, 75);
 
     return of_dir;
 }
@@ -160,7 +163,6 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 	lastChangeX = changeX;
 	lastChangeY = changeY;
 	// Only print to screen if we moved positions
-	std::cout << "DX\t" << changeX << "\tDY:\t" << changeY << " wantedHoldX: " << wantedHoldX << " wantedHoldY: " << wantedHoldY << " of_roll: " << of_roll << " of_pitch: " << of_pitch << std::endl;
 }
 
 int getCheckSum(std::string message){
@@ -178,7 +180,7 @@ void serialWriteWithCheckSum(std::string message){
 	s << message << "(" << getCheckSum(message) << ")" << std::endl;
 	message = s.str();
 
-	std::cout << "Sent: " << message << " (of_roll: " << of_roll << ", of_pitch: " << of_pitch << ")" << std::endl;
+//	std::cout << "Sent: " << message << " (of_roll: " << of_roll << ", of_pitch: " << of_pitch << ")" << std::endl;
 	serialInst.write(message);
 }
 
@@ -187,10 +189,10 @@ void serialWriteWithCheckSum(std::string message){
 void sendPWM(){
 	std::stringstream s;
 
-	//s << "throttle:" << throttle.getOutput() << ",";
-	s << "pitch:"   << pitch.getOutput() - of_pitch << ",";
-	s << "roll:"    << roll.getOutput() + of_roll << ",";
-//	s << "yaw:"     << yaw.getOutput() << ",";
+	//s << "throttle:" << throttle.getOutput();
+	s << "pitch:" << pitch.getOutput() + of_pitch;
+	s << ",roll:"  << roll.getOutput() + of_roll;
+//	s << ",yaw:"   << yaw.getOutput();
 	serialWriteWithCheckSum(s.str());
 
 }
@@ -407,10 +409,18 @@ int main(int argc, char** argv){
 
 	//first thing is get the config
 	getConfig();
+	std::cerr << "Got Config" << std::endl;
+	lastTime = ros::Time::now().toNSec();
 
 	while(nh->ok())
 	{
 		ros::spinOnce(); // needed to get subscribed messages
+
+		uint64_t currentTime = ros::Time::now().toNSec();
+		dt = (float)lastTime - currentTime;
+		dt /= 1000000000;
+		lastTime = currentTime;
+
 		std::string result;
 
 		if (serialInst.available()) {
@@ -422,7 +432,24 @@ int main(int argc, char** argv){
 				std::cerr << "Error with main loop read" << std::endl;
 			}
 			std::cerr << result << std::endl;
+			if(checkCheckSum(result))
+			{
+				std::string input = result.substr(0, result.find("("));
+				if(input == "landed")
+				{
+					std::cerr << "Landed resetting..." << std::endl;
+					resetX();
+					resetY();
+				}else{
+					std::cerr << "Message without purpose received '" << input << "'" << std::endl;
+				}
+			}else{
+				std::cerr << "Invalid checksum for '" << result << "'" << std::endl;
+			}
 		}
+
+		if(mapGood)
+			std::cout << "currentX: " << currentX << " currentY: " << currentY << " wantedHoldX: " << wantedHoldX << " wantedHoldY: " << wantedHoldY << " of_roll: " << of_roll << " of_pitch: " << of_pitch << std::endl;
 
 		sendPWM();
 	}
