@@ -40,5 +40,5 @@ The calculated path is displayed with red marker points:
 
 ## Contributors
 
-Chris Allen and Tyler Gauch
+Chris Allen and Tyler Gauch.
 
