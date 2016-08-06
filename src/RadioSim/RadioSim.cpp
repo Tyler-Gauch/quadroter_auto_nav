@@ -7,6 +7,7 @@ QuadVector lastPos;
 float dt;
 uint64_t lastTime;
 bool mapGood = true;
+int constraint = 100;
 
 //constrain an integer to a specific range
 int constrain_int32(int input, int min, int max){
@@ -38,7 +39,7 @@ int getCorrection(float error, PID pid, int & of_dir){
     of_dir = constrain_int32(new_dir, (of_dir-20), (of_dir+20));
 
     // limit max angle
-    of_dir = constrain_int32(of_dir, -75, 75);
+    of_dir = constrain_int32(of_dir, -constraint, constraint);
 
     return of_dir;
 }
@@ -83,7 +84,7 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 
 	if(!mapGood)
 	{
-		std::cerr << "Map not good" << std::endl;
+		std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Map not good" << std::endl;
 		of_roll = 0;
 		of_pitch = 0;
 		pitch.setOutput(pitch.getTrim());
@@ -127,7 +128,7 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 
 		if(numSamples > STABILIZE_SAMPLE_THRESHOLD)
 		{
-			std::cout << "Waiting for map to stabilize..." << std::endl;
+			std::cout << "[" << (double)ros::Time::now().toSec() << "]: Waiting for map to stabilize..." << std::endl;
 			float avgX = currentXTotal / numSamples;
 			float avgY = currentYTotal / numSamples;			
 
@@ -136,11 +137,11 @@ void poseCallback(const geometry_msgs::PoseStamped &currentPosition){
 				numSamples = 0;
 				currentXTotal = 0;
 				currentYTotal = 0;
-				std::cout << "Waiting for map to stabilize..." << std::endl;
+				std::cout << "[" << (double)ros::Time::now().toSec() << "]: Waiting for map to stabilize..." << std::endl;
 				return;
 			}else{
 				mapStabilized = true;
-				std::cout << "Map stabilized" << std::endl;
+				std::cout << "[" << (double)ros::Time::now().toSec() << "]: Map stabilized" << std::endl;
 			}
 		}else{
 			return;
@@ -199,7 +200,7 @@ void sendPWM(){
 
 bool checkCheckSum(std::string message){
 
-	std::string::size_type pos = message.find("(");
+	std::string::size_type pos = message.find_last_of("(");
 
 	//no ( found we didn't get a checksum
 	if(pos == std::string::npos)
@@ -207,7 +208,7 @@ bool checkCheckSum(std::string message){
 		return false;
 	}
 
-	std::string::size_type pos2 = message.find(")");
+	std::string::size_type pos2 = message.find_last_of(")");
 	//no ) ofund we didn't get entire checksum
 	if(pos2 == std::string::npos)
 	{
@@ -216,7 +217,6 @@ bool checkCheckSum(std::string message){
 
 	std::string checkSum = message.substr(pos+1, pos2-1 - pos+1);
 	message = message.substr(0, pos);
-	std::cout << "CheckSum: " << checkSum << " Message: " << message << std::endl;
 
 	int cs;
 	std::istringstream(checkSum) >> cs;
@@ -235,7 +235,7 @@ bool checkCheckSum(std::string message){
 //so we can get the proper values
 void getConfig(){
 	int waiting_count = 0;
-	std::cerr << "Waiting for APM to Connect..." << std::endl;
+	std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Waiting for APM to Connect..." << std::endl;
 	bool connected = false;
 	while(true)
 	{
@@ -246,16 +246,19 @@ void getConfig(){
 			std::string config;
 			config = serialInst.read(10000); //10000 might be too big not sure yet
 
-			std::cerr << "Checking: " << config << std::endl;
+			config = config.substr(0, config.find('\n'));
+
+			std::cout << "Possible Config: " << config << std::endl;
 
 			if(!checkCheckSum(config))
 			{
+				std::cout << "Invalid checksum while checking config" << std::endl;
 				continue;
 			}else if(config.find("APM connected") != std::string::npos)
 			{
-				std::cerr << "APM Connected." << std::endl;
+				std::cerr << "[" << (double)ros::Time::now().toSec() << "]: APM Connected." << std::endl;
 				serialWriteWithCheckSum(CONFIG_COMMAND);
-				std::cout << "Waiting for config..." << std::endl;
+				std::cout << "[" << (double)ros::Time::now().toSec() << "]: Waiting for config..." << std::endl;
 				connected = true;
 				continue;
 			}
@@ -265,7 +268,7 @@ void getConfig(){
 				continue;
 			}
 
-			std::cout << "Received Config: " << config << std::endl;
+			std::cout << "[" << (double)ros::Time::now().toSec() << "]: Received Config: " << config << std::endl;
 			config = config.substr(0, config.find("("));
 			config.append(",");
 
@@ -276,7 +279,7 @@ void getConfig(){
 				std::string param = config.substr(0, posColon);
 				std::string value = config.substr(posColon+1, (posComma) - (posColon+1));
 
-				std::cout << "Param: " << param << " Value: " << value << std::endl;
+				std::cout << "[" << (double)ros::Time::now().toSec() << "]: Param: " << param << " Value: " << value << std::endl;
 
 				if(param.find("thr") != std::string::npos)
 				{
@@ -334,7 +337,7 @@ void getConfig(){
 
 				config = config.substr(posComma+1);
 			}
-			std::cerr << "Exiting initial_setup" << std::endl;
+			std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Exiting initial_setup" << std::endl;
 			break;
 		}
 	}
@@ -352,7 +355,7 @@ void checkForInput() {
 	while (ros::ok()) {
 		std::string input;
 		std::getline(std::cin, input);
-		std::cerr << "Got: " << input << ". Writing to serial...." << std::endl;
+		std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Got: " << input << ". Writing to serial...." << std::endl;
 		if(input == "initial_start")
 		{
 			mapGood = false;
@@ -362,25 +365,30 @@ void checkForInput() {
 			std::string val = input.substr(input.find("P:")+2);
 			pidX.kP(atof(val.c_str()));
 			pidY.kP(atof(val.c_str()));
-			std::cerr << "P: " << pidX.kP() << std::endl;
+			std::cerr << "P Set To: " << pidX.kP() << std::endl;
 		}else if(input.find("I:") != std::string::npos){
 			std::string val = input.substr(input.find("I:")+2);
 			pidX.kI(atof(val.c_str()));
 			pidY.kI(atof(val.c_str()));
-			std::cerr << "I: " << pidX.kI() << std::endl;
+			std::cerr << "I Set To: " << pidX.kI() << std::endl;
 		}else if(input.find("D:") != std::string::npos){
 			std::string val = input.substr(input.find("D:")+2);
 			pidX.kD(atof(val.c_str()));
 			pidY.kD(atof(val.c_str()));
 
-			std::cerr << "D: " << pidX.kD() << std::endl;
+			std::cerr << "D Set To: " << pidX.kD() << std::endl;
 		}else if(input.find("M:") != std::string::npos){
 			std::string val = input.substr(input.find("M:")+2);
 			pidX.imax(atof(val.c_str()));
 			pidY.imax(atof(val.c_str()));
 
-			std::cerr << "IMAX: " << pidX.imax() << std::endl;
-		}
+			std::cerr << "IMAX Set To: " << pidX.imax() << std::endl;
+		}else if(input.find("C:") != std::string::npos){
+			std::string val = input.substr(input.find("M:")+2);
+			constraint = atoi(val.c_str());
+
+			std::cerr << "Constraint Set To: " << pidX.imax() << std::endl;
+		}	
 		else{
 			serialWriteWithCheckSum(input);
 		}
@@ -432,8 +440,13 @@ int main(int argc, char** argv){
 
 	//first thing is get the config
 	getConfig();
-	std::cerr << "Got Config" << std::endl;
 	lastTime = ros::Time::now().toNSec();
+
+	std::cerr << "P: " << pidX.kP() << std::endl;
+	std::cerr << "I: " << pidX.kI() << std::endl;
+	std::cerr << "D: " << pidX.kD() << std::endl;
+	std::cerr << "IMAX: " << pidX.imax() << std::endl;
+	std::cerr << "Constraint: " << constraint<< std::endl;
 
 	while(nh->ok())
 	{
@@ -452,27 +465,27 @@ int main(int argc, char** argv){
 			} catch (serial::SerialException& e) {
 
 				// Serial error occurred
-				std::cerr << "Error with main loop read" << std::endl;
+				std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Error with main loop read" << std::endl;
 			}
-			std::cerr << result << std::endl;
+			std::cerr << "[" << (double)ros::Time::now().toSec() << "]: " << result << std::endl;
 			if(checkCheckSum(result))
 			{
 				std::string input = result.substr(0, result.find("("));
-				if(input == "landed")
+				if(input.find("landed") != std::string::npos)
 				{
-					std::cerr << "Landed resetting..." << std::endl;
+					std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Landed resetting..." << std::endl;
 					resetX();
 					resetY();
 				}else{
-					std::cerr << "Message without purpose received '" << input << "'" << std::endl;
+					std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Message without purpose received '" << input << "'" << std::endl;
 				}
 			}else{
-				std::cerr << "Invalid checksum for '" << result << "'" << std::endl;
+				std::cerr << "[" << (double)ros::Time::now().toSec() << "]: Invalid checksum for '" << result << "'" << std::endl;
 			}
 		}
 
 		if(mapGood)
-			std::cout << "currentX: " << currentX << " currentY: " << currentY << " wantedHoldX: " << wantedHoldX << " wantedHoldY: " << wantedHoldY << " of_roll: " << of_roll << " of_pitch: " << of_pitch << std::endl;
+			std::cout << "[" << (double)ros::Time::now().toSec() << "]: currentX: " << currentX << " currentY: " << currentY << " wantedHoldX: " << wantedHoldX << " wantedHoldY: " << wantedHoldY << " of_roll: " << of_roll << " of_pitch: " << of_pitch << std::endl;
 
 		sendPWM();
 	}
@@ -482,3 +495,4 @@ int main(int argc, char** argv){
 	// Close the serial port
 	serialInst.close();
 }
+

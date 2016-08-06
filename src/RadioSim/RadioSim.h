@@ -35,15 +35,15 @@
 
 //PID values for the Roll PID Controller
 #define PID_X_P 	5.0f
-#define PID_X_I 	0.5f
-#define PID_X_D 	0.12f
-#define PID_X_IMAX 	100.0f
+#define PID_X_I 	0.0f
+#define PID_X_D 	0.0f
+#define PID_X_IMAX 	0.0f
 
 //PID values for the Pitch PID Controller
 #define PID_Y_P 	5.0f
-#define PID_Y_I 	0.5f
-#define PID_Y_D 	0.12f
-#define PID_Y_IMAX 	100.0f
+#define PID_Y_I 	0.0f
+#define PID_Y_D 	0.0f
+#define PID_Y_IMAX 	0.0f
 
 #define CONFIG_COMMAND	"initial_start"
 
