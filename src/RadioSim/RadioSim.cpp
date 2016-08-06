@@ -361,33 +361,51 @@ void checkForInput() {
 			mapGood = false;
 			getConfig();
 			mapGood = true;
-		}else if(input.find("P:") != std::string::npos){
-			std::string val = input.substr(input.find("P:")+2);
+		}else if(input.find("PX:") != std::string::npos){
+			std::string val = input.substr(input.find("PX:")+3);
 			pidX.kP(atof(val.c_str()));
-			pidY.kP(atof(val.c_str()));
-			std::cerr << "P Set To: " << pidX.kP() << std::endl;
-		}else if(input.find("I:") != std::string::npos){
-			std::string val = input.substr(input.find("I:")+2);
+
+			std::cerr << "PX Set To: " << pidX.kP() << std::endl;
+		}else if(input.find("IX:") != std::string::npos){
+			std::string val = input.substr(input.find("IX:")+3);
 			pidX.kI(atof(val.c_str()));
-			pidY.kI(atof(val.c_str()));
-			std::cerr << "I Set To: " << pidX.kI() << std::endl;
-		}else if(input.find("D:") != std::string::npos){
-			std::string val = input.substr(input.find("D:")+2);
+
+			std::cerr << "IX Set To: " << pidX.kI() << std::endl;
+		}else if(input.find("DX:") != std::string::npos){
+			std::string val = input.substr(input.find("DX:")+3);
 			pidX.kD(atof(val.c_str()));
+
+			std::cerr << "DX Set To: " << pidX.kD() << std::endl;
+		}else if(input.find("MX:") != std::string::npos){
+			std::string val = input.substr(input.find("MX:")+3);
+			pidX.imax(atof(val.c_str()));
+
+			std::cerr << "IMAX X Set To: " << pidX.imax() << std::endl;
+		}else if(input.find("PY:") != std::string::npos){
+			std::string val = input.substr(input.find("PY:")+3);
+			pidY.kP(atof(val.c_str()));
+			
+			std::cerr << "PY Set To: " << pidY.kP() << std::endl;
+		}else if(input.find("IY:") != std::string::npos){
+			std::string val = input.substr(input.find("IY:")+3);
+			pidY.kI(atof(val.c_str()));
+
+			std::cerr << "IY Set To: " << pidY.kI() << std::endl;
+		}else if(input.find("DY:") != std::string::npos){
+			std::string val = input.substr(input.find("DY:")+3);
 			pidY.kD(atof(val.c_str()));
 
-			std::cerr << "D Set To: " << pidX.kD() << std::endl;
-		}else if(input.find("M:") != std::string::npos){
-			std::string val = input.substr(input.find("M:")+2);
-			pidX.imax(atof(val.c_str()));
+			std::cerr << "DY Set To: " << pidY.kD() << std::endl;
+		}else if(input.find("MY:") != std::string::npos){
+			std::string val = input.substr(input.find("MY:")+3);
 			pidY.imax(atof(val.c_str()));
 
-			std::cerr << "IMAX Set To: " << pidX.imax() << std::endl;
+			std::cerr << "IMAX Y Set To: " << pidY.imax() << std::endl;
 		}else if(input.find("C:") != std::string::npos){
-			std::string val = input.substr(input.find("M:")+2);
+			std::string val = input.substr(input.find("C:")+2);
 			constraint = atoi(val.c_str());
 
-			std::cerr << "Constraint Set To: " << pidX.imax() << std::endl;
+			std::cerr << "Constraint Set To: " << constraint << std::endl;
 		}	
 		else{
 			serialWriteWithCheckSum(input);
